@@ -1,20 +1,22 @@
-const fs = require("fs");
-const webpack = require("webpack");
-const resolve = require("resolve");
-const PnpWebpackPlugin = require("pnp-webpack-plugin");
-const CaseSensitivePathsPlugin = require("case-sensitive-paths-webpack-plugin");
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const ManifestPlugin = require("webpack-manifest-plugin");
-const WatchMissingNodeModulesPlugin = require("react-dev-utils/WatchMissingNodeModulesPlugin");
-const getCSSModuleLocalIdent = require("react-dev-utils/getCSSModuleLocalIdent");
-const paths = require("./paths");
-const modules = require("./modules");
-const getClientEnvironment = require("./env");
-const ForkTsCheckerWebpackPlugin = require("react-dev-utils/ForkTsCheckerWebpackPlugin");
-const typescriptFormatter = require("react-dev-utils/typescriptFormatter");
-const ScribblePadPlugin = require("./scribble-pad-plugin");
+import fs from "fs";
+import path from "path";
+import webpack, { Configuration } from "webpack";
+import resolve from "resolve";
+import HtmlWebpackPlugin from "html-webpack-plugin";
+import PnpWebpackPlugin from "pnp-webpack-plugin";
+import CaseSensitivePathsPlugin from "case-sensitive-paths-webpack-plugin";
+import MiniCssExtractPlugin from "mini-css-extract-plugin";
+import WatchMissingNodeModulesPlugin from "react-dev-utils/WatchMissingNodeModulesPlugin";
+import getCSSModuleLocalIdent from "react-dev-utils/getCSSModuleLocalIdent";
+import { paths } from "./paths";
+import modules from "./modules";
+import getClientEnvironment from "./env";
+import ForkTsCheckerWebpackPlugin from "react-dev-utils/ForkTsCheckerWebpackPlugin";
+import typescriptFormatter from "react-dev-utils/typescriptFormatter";
+import { ScribblePadPlugin } from "./scribble-pad-plugin";
+import postcssNormalize from "postcss-normalize";
 
-const postcssNormalize = require("postcss-normalize");
+const appPackageJson = require(paths.appPackageJson);
 
 // Source maps are resource heavy and can cause out of memory issue for large source files.
 const shouldUseSourceMap = process.env.GENERATE_SOURCEMAP !== "false";
@@ -34,32 +36,23 @@ const sassModuleRegex = /\.module\.(scss|sass)$/;
 
 const DEFAULT_PORT = 9080;
 
-module.exports = function(config) {
-  const scribblePadPlugin = new ScribblePadPlugin({
-    env: config.target,
-    scribblePad: paths.scribblePad,
-    directory: paths.scribblePadDir
-  });
-  const isRenderer = config.target === "electron-renderer";
-  // TODO: figure out how to not recreate this.
-  // const socketPath = `/tmp/electron-main-ipc-${(
-  //   process.pid + (isRenderer ? -1 : 0)
-  // ).toString(16)}.sock`;
+interface Options {
+  env: "development" | "production" | "none";
+  scribblePad: string;
+}
 
-  // FIX up ENV.
-  // if (config.devServer) {
-  //   process.env.ELECTRON_WEBPACK_WDS_SOCKET_HOST = config.devServer.host;
-  //   process.env.ELECTRON_WEBPACK_WDS_PORT = config.devServer.port;
-  // } else {
-  //   process.env.ELECTRON_WEBPACK_WDS_SOCKET_HOST = "localhost";
-  //   process.env.ELECTRON_WEBPACK_WDS_PORT = DEFAULT_PORT;
-  // }
-  // if (!process.env.ELECTRON_HMR_SOCKET_PATH) {
-  //   process.env.ELECTRON_HMR_SOCKET_PATH = socketPath;
-  //   process.env.ELECTRON_WEBPACK_WDS_SOCKET_PATH = socketPath;
-  // }
-  process.env.NODE_ENV = config.mode;
-  process.env.BABEL_ENV = config.mode;
+export default function(config: Options) {
+  const { scribblePad } = config;
+  const scribblePadDir = path.parse(scribblePad).dir;
+
+  const scribblePadPlugin = new ScribblePadPlugin({
+    env: config.env,
+    scribblePad: scribblePad,
+    directory: scribblePadDir
+  });
+
+  process.env.NODE_ENV = config.env;
+  process.env.BABEL_ENV = config.env;
   // This is the production and development configuration.
   // It is focused on developer experience, fast rebuilds, and a minimal bundle.
   const isEnvDevelopment = process.env.NODE_ENV === "development";
@@ -74,10 +67,13 @@ module.exports = function(config) {
   // as %PUBLIC_URL% in `index.html` and `process.env.PUBLIC_URL` in JavaScript.
   // Omit trailing slash as %PUBLIC_URL%/xyz looks better than %PUBLIC_URL%xyz.
   // Get environment variables to inject into our app.
-  const env = getClientEnvironment(paths.publicUrlOrPath.slice(0, -1));
+  const env = getClientEnvironment(
+    paths.publicUrlOrPath.slice(0, -1),
+    scribblePad
+  );
 
   // common function to get style loaders
-  const getStyleLoaders = (cssOptions, preProcessor) => {
+  const getStyleLoaders = (cssOptions: any, preProcessor?: any) => {
     const loaders = [
       isEnvDevelopment && require.resolve("style-loader"),
       isEnvProduction && {
@@ -137,53 +133,88 @@ module.exports = function(config) {
     return loaders;
   };
 
-  scribblePadPlugin.log(JSON.stringify(config.entry));
-
-  const fullConfig = {
-    ...config,
-    ...(isRenderer
-      ? {
-          entry: {
-            ...config.entry,
-            scribble: [paths.scribblePad]
-          }
-        }
-      : {}),
-    watch: isRenderer,
-    externals: [...config.externals, "react", "react-dom"],
-    // Stop compilation early in production
-    bail: isEnvProduction,
-    ...(config.devServer
-      ? {
-          devServer: {
-            ...config.devServer,
-            contentBase: paths.scribblePadDir,
-            watchContentBase: true,
-            watchOptions: {
-              poll: true,
-              aggregateTimeout: 10000,
-              ignored: /node_modules/
-            },
-            before: (app, server) => {
-              scribblePadPlugin.watch(server);
-            }
-          }
-        }
-      : {}),
+  const fullConfig: Configuration = {
+    mode: config.env,
+    context: paths.appPath,
+    entry: {
+      renderer: [
+        `webpack-dev-server/client?http://0.0.0.0:${DEFAULT_PORT}`,
+        "webpack/hot/only-dev-server",
+        paths.rendererPath,
+        scribblePad
+      ]
+    },
+    output: {
+      // The build folder.
+      path: paths.appBuild,
+      // Add /* filename */ comments to generated require()s in the output.
+      pathinfo: isEnvDevelopment,
+      // There will be one main bundle, and one file per asynchronous chunk.
+      // In development, it does not produce real files.
+      filename: isEnvProduction
+        ? "static/js/[name].[contenthash:8].js"
+        : isEnvDevelopment && "static/js/[name].js",
+      // TODO: remove this when upgrading to webpack 5
+      futureEmitAssets: true,
+      // There are also additional JS chunk files if you use code splitting.
+      chunkFilename: isEnvProduction
+        ? "static/js/[name].[contenthash:8].chunk.js"
+        : isEnvDevelopment && "static/js/[name].chunk.js",
+      // webpack uses `publicPath` to determine where the app is being served from.
+      // It requires a trailing slash, or the file assets will get an incorrect path.
+      // We inferred the "public path" (such as / or /my-project) from homepage.
+      publicPath: paths.publicUrlOrPath,
+      // Point sourcemap entries to original disk location (format as URL on Windows)
+      devtoolModuleFilenameTemplate: isEnvProduction
+        ? info =>
+            path
+              .relative(paths.appSrc, info.absoluteResourcePath)
+              .replace(/\\/g, "/")
+        : isEnvDevelopment &&
+          (info => path.resolve(info.absoluteResourcePath).replace(/\\/g, "/")),
+      // Prevents conflicts when multiple webpack runtimes (from different apps)
+      // are used on the same page.
+      jsonpFunction: `webpackJsonp${appPackageJson.name}`,
+      // this defaults to 'window', but by setting it to 'this' then
+      // module chunks which are built will work in web workers as well.
+      globalObject: "this"
+    },
+    watch: true,
+    stats: "errors-only",
+    devServer: {
+      clientLogLevel: "silent",
+      contentBase: paths.appBuild,
+      watchContentBase: true,
+      port: DEFAULT_PORT,
+      // Hot reloading
+      hot: true,
+      transportMode: "ws",
+      injectClient: false,
+      // Socket config
+      sockPort: DEFAULT_PORT,
+      sockHost: "localhost",
+      sockPath: "/sockjs-node",
+      historyApiFallback: {
+        // Paths with dots should still use the history fallback.
+        // See https://github.com/facebook/create-react-app/issues/387.
+        disableDotRule: true,
+        index: paths.rendererRoot
+      },
+      before: (_app, server) => {
+        scribblePadPlugin.watch(server);
+      }
+    },
 
     resolve: {
       // This allows you to set a fallback for where webpack should look for modules.
       // We placed these paths second because we want `node_modules` to "win"
       // if there are any conflicts. This matches Node resolution mechanism.
       // https://github.com/facebook/create-react-app/issues/253
-      modules: [
-        "node_modules",
-        paths.appNodeModules,
-        paths.scribblePadDir
-      ].concat(modules.additionalModulePaths || []),
-      extensions: [".tsx", ".ts", ".svg"].concat(config.resolve.extensions),
+      modules: ["node_modules", paths.appNodeModules, scribblePadDir].concat(
+        modules.additionalModulePaths || []
+      ),
+      extensions: [".tsx", ".ts", ".js", ".jsx", ".css", ".svg"],
       alias: {
-        ...config.resolve.alias,
         // Support React Native Web
         // https://www.smashingmagazine.com/2016/08/a-glimpse-into-the-future-with-react-native-for-web/
         "react-native": "react-native-web",
@@ -194,7 +225,7 @@ module.exports = function(config) {
         }),
         react: paths.react,
         "react-dom": paths.reactDOM,
-        "scribble-pad-subject": paths.scribblePad,
+        "scribble-pad-subject": scribblePad,
         ...(modules.webpackAliases || {})
       },
       plugins: [
@@ -254,14 +285,16 @@ module.exports = function(config) {
             // The preset includes JSX, Flow, TypeScript, and some ESnext features.
             {
               test: /\.(js|mjs|jsx|ts|tsx)$/,
-              include: [paths.appSrc, paths.scribblePadDir],
+              include: [paths.appSrc, scribblePadDir],
               loader: require.resolve("babel-loader"),
               options: {
                 customize: require.resolve(
                   "babel-preset-react-app/webpack-overrides"
                 ),
-
+                presets: [require.resolve("babel-preset-react-app")],
                 plugins: [
+                  require.resolve("@babel/plugin-transform-modules-commonjs"),
+                  // require.resolve("babel-plugin-glslify"),
                   [
                     require.resolve("babel-plugin-named-asset-import"),
                     {
@@ -399,7 +432,33 @@ module.exports = function(config) {
       ]
     },
     plugins: [
-      ...config.plugins,
+      // Generates an `index.html` file with the <script> injected.
+      new HtmlWebpackPlugin(
+        Object.assign(
+          {},
+          {
+            inject: true,
+            template: paths.rendererHtml,
+            filename: "index.html"
+          },
+          isEnvProduction
+            ? {
+                minify: {
+                  removeComments: true,
+                  collapseWhitespace: true,
+                  removeRedundantAttributes: true,
+                  useShortDoctype: true,
+                  removeEmptyAttributes: true,
+                  removeStyleLinkTypeAttributes: true,
+                  keepClosingSlash: true,
+                  minifyJS: true,
+                  minifyCSS: true,
+                  minifyURLs: true
+                }
+              }
+            : undefined
+        )
+      ),
       scribblePadPlugin,
       // Makes some environment variables available to the JS code, for example:
       // if (process.env.NODE_ENV === 'production') { ... }. See `./env.js`.
@@ -423,24 +482,7 @@ module.exports = function(config) {
       //   `index.html`
       // - "entrypoints" key: Array of files which are included in `index.html`,
       //   can be used to reconstruct the HTML if necessary
-      new ManifestPlugin({
-        fileName: "asset-manifest.json",
-        publicPath: paths.publicUrlOrPath,
-        generate: (seed, files, entrypoints) => {
-          const manifestFiles = files.reduce((manifest, file) => {
-            manifest[file.name] = file.path;
-            return manifest;
-          }, seed);
-          const entrypointFiles = (entrypoints.main || []).filter(
-            fileName => !fileName.endsWith(".map")
-          );
 
-          return {
-            files: manifestFiles,
-            entrypoints: entrypointFiles
-          };
-        }
-      }),
       // Moment.js is an extremely popular library that bundles large locale files
       // by default due to how webpack interprets its code. This is a practical
       // solution that requires the user to opt into importing specific locales.
@@ -481,4 +523,4 @@ module.exports = function(config) {
   };
 
   return fullConfig;
-};
+}

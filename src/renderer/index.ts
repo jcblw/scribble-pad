@@ -1,6 +1,6 @@
 import "./index.css";
-import * as App from "./app";
+import { renderApp } from "./app";
 
-App.renderApp();
+renderApp();
 
 if (module.hot) module.hot.accept();

@@ -1,5 +1,4 @@
-export const cleanUp = ({ build, exit }) => async () => {
-  build.kill("SIGINT");
+export const cleanUp = ({ exit }) => async () => {
   exit();
 };
 

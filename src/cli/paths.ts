@@ -1,11 +1,12 @@
-const path = require("path");
-const fs = require("fs");
-const getPublicUrlOrPath = require("react-dev-utils/getPublicUrlOrPath");
+import path from "path";
+import fs from "fs";
+import getPublicUrlOrPath from "react-dev-utils/getPublicUrlOrPath";
 
 // Make sure any symlinks in the project folder are resolved:
 // https://github.com/facebook/create-react-app/issues/637
-const appDirectory = fs.realpathSync(process.cwd());
-const resolveApp = relativePath => path.resolve(appDirectory, relativePath);
+const appDirectory = path.resolve(__dirname, "../");
+export const resolveApp = (relativePath: string) =>
+  path.resolve(appDirectory, relativePath);
 
 // We use `PUBLIC_URL` environment variable or "homepage" field to infer
 // "public path" at which the app is served.
@@ -49,13 +50,13 @@ const resolveModule = (resolveFn, filePath) => {
 const scribblePad = process.env.SCRIBBLE_PAD;
 
 // config after eject: we're in ./config/
-module.exports = {
+export const paths = {
   dotenv: resolveApp(".env"),
   appPath: resolveApp("."),
   appBuild: resolveApp("build"),
-  appPublic: resolveApp("public"),
-  appHtml: resolveApp("public/index.html"),
-  appIndexJs: resolveModule(resolveApp, "src/renderer/index.ts"),
+  rendererRoot: resolveApp("src/renderer"),
+  rendererHtml: resolveApp("src/renderer/index.html"),
+  rendererPath: resolveApp("src/renderer/index.ts"),
   appPackageJson: resolveApp("package.json"),
   appSrc: resolveApp("src"),
   appTsConfig: resolveApp("tsconfig.json"),
@@ -66,9 +67,7 @@ module.exports = {
   appNodeModules: resolveApp("node_modules"),
   react: resolveApp("node_modules/react"),
   reactDOM: resolveApp("node_modules/react-dom"),
-  scribblePad,
-  scribblePadDir: path.parse(scribblePad).dir,
   publicUrlOrPath
 };
 
-module.exports.moduleFileExtensions = moduleFileExtensions;
+export { moduleFileExtensions };

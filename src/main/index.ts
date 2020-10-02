@@ -14,6 +14,8 @@ function createWindow() {
     }
   });
 
+  console.log(process.env.ELECTRON_WEBPACK_WDS_PORT);
+
   if (isDevelopment) {
     win.loadURL(`http://localhost:${process.env.ELECTRON_WEBPACK_WDS_PORT}`);
   } else {
@@ -48,7 +50,3 @@ app.on("activate", () => {
     createWindow();
   }
 });
-
-if (module.hot) {
-  module.hot.accept();
-}

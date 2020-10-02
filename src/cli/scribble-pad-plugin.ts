@@ -1,19 +1,27 @@
-const chokidar = require("chokidar");
-const { spawn } = require("child_process");
-const path = require("path");
+import { Compiler } from "webpack";
+import chokidar from "chokidar";
+import { spawn } from "child_process";
+import path from "path";
 
 const PLUGIN_NAME = "ScribblePad";
 const delimiter = "~~";
 
-module.exports = class ScribblePadPlugin {
+export class ScribblePadPlugin {
+  compiler: Compiler | null;
+  env: string;
+  scribblePad: string;
+  directory: string;
+
   constructor({ env, scribblePad, directory }) {
     this.env = env || "unknown";
     this.scribblePad = scribblePad;
     this.directory = directory;
+    this.compiler = null;
   }
   // copy of
   // https://github.com/webpack/webpack-dev-server/blob/4ab1f21bc85cc1695255c739160ad00dc14375f1/lib/Server.js#L992
   watch(server) {
+    this.log("server started");
     const usePolling = server.watchOptions.poll ? true : undefined;
     const interval =
       typeof server.watchOptions.poll === "number"
@@ -47,8 +55,8 @@ module.exports = class ScribblePadPlugin {
     }
     // server.contentBaseWatchers.push(this.watcher);
   }
-  log(msg) {
-    console.log(`${delimiter}${this.env} ${msg} ${delimiter}`);
+  log(msg: string) {
+    // console.log(`${delimiter}${this.env} ${msg} ${delimiter}`);
   }
   getChangedFiles(compiler) {
     const { watchFileSystem } = compiler;
@@ -56,36 +64,37 @@ module.exports = class ScribblePadPlugin {
 
     return Object.keys(watcher.mtimes);
   }
-  apply(compiler) {
-    this.compiler = compiler;
+  apply(c) {
+    this.compiler = c;
+    const compiler = this.compiler;
 
     compiler.hooks.watchRun.tap(PLUGIN_NAME, compilation => {
       this.log(JSON.stringify(this.getChangedFiles(compilation)));
-      this.log("watchRun");
+      // this.log("watchRun");
     });
-    compiler.hooks.watchClose.tap(PLUGIN_NAME, (context, entry) => {
-      this.log("watch close");
+    compiler.hooks.watchClose.tap(PLUGIN_NAME, () => {
+      // this.log("watch close");
     });
-    compiler.hooks.run.tap(PLUGIN_NAME, (params, entry) => {
-      this.log("run");
+    compiler.hooks.run.tap(PLUGIN_NAME, () => {
+      // this.log("run");
     });
-    compiler.hooks.afterCompile.tap(PLUGIN_NAME, (compilation, entry) => {
-      this.log(`after compile`);
+    compiler.hooks.afterCompile.tap(PLUGIN_NAME, compilation => {
+      // this.log(`after compile`);
       const { fileDependencies } = compilation;
       const files = Array.from(fileDependencies);
       if (!files.includes(this.scribblePad)) {
-        this.log(`File ${this.scribblePad} added to compilation watch`);
+        // this.log(`File ${this.scribblePad} added to compilation watch`);
         compilation.fileDependencies.add(this.scribblePad);
       }
     });
-    compiler.hooks.done.tap(PLUGIN_NAME, (context, entry) => {
-      this.log("done");
+    compiler.hooks.done.tap(PLUGIN_NAME, () => {
+      // this.log("done");
     });
-    compiler.hooks.failed.tap(PLUGIN_NAME, (context, entry) => {
-      this.log("failed");
+    compiler.hooks.failed.tap(PLUGIN_NAME, () => {
+      // this.log("failed");
     });
-    compiler.hooks.invalid.tap(PLUGIN_NAME, (context, entry) => {
-      this.log("invalid");
+    compiler.hooks.invalid.tap(PLUGIN_NAME, () => {
+      // this.log("invalid");
     });
   }
-};
+}

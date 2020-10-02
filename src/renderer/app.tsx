@@ -46,6 +46,6 @@ export const renderApp = () => {
     <React.StrictMode>
       <App />
     </React.StrictMode>,
-    document.getElementById("app")
+    document.getElementById("root")
   );
 };

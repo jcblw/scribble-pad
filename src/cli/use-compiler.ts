@@ -1,17 +1,20 @@
-import { spawn, ChildProcessWithoutNullStreams } from "child_process";
-import path from "path";
-import { useEffect, useState, useRef } from "react";
+import webpack, { Compiler } from "webpack";
+import { useEffect, useState, useRef, useMemo } from "react";
 import {
   cleanMsg,
   isCompileComplete,
   isFail,
   ownPluginMessages
 } from "./utils";
-
-const electronWebpackPath = path.resolve(__dirname, "../scripts/start.js");
+import createConfig from "./webpack.config";
+import WebpackDevServer from "webpack-dev-server";
+import { stub, webpackPattern, restore } from "./logs";
+// call webpack directly
 
 interface UseCompilerOptions {
   filepath: string;
+  debug?: boolean;
+  port?: number;
 }
 
 export enum CompilerStatus {
@@ -21,67 +24,89 @@ export enum CompilerStatus {
   Complete = "complete"
 }
 
-export const useCompiler = ({ filepath }: UseCompilerOptions) => {
+export enum DevServerStatus {
+  Waiting = "waiting",
+  Starting = "starting",
+  Started = "started",
+  Error = "error"
+}
+
+export const useCompiler = ({
+  filepath,
+  debug,
+  port = 9080
+}: UseCompilerOptions) => {
   const rawLogs = useRef<string[]>([]);
   const [logs, setLogs] = useState<string[]>(["Starting"]);
-  const [build, setBuild] = useState<ChildProcessWithoutNullStreams | null>(
-    null
-  );
   const [status, setStatus] = useState(CompilerStatus.Starting);
+  const [devServerStatus, setDevServerStatus] = useState(
+    DevServerStatus.Waiting
+  );
   const fileName = filepath.split("/").pop();
-
-  useEffect(() => {
-    let child = spawn(electronWebpackPath, ["dev"], {
-      env: {
-        ...process.env,
-        SCRIBBLE_PAD: filepath
-      },
-      cwd: path.resolve(__dirname, "../")
-    });
-    setBuild(child);
-    return () => {
-      child.kill("SIGTERM");
-    };
-  }, [filepath]);
-
-  useEffect(() => {
-    const handleStdout = (data: Buffer) => {
-      const msg = cleanMsg(data);
-      if (isCompileComplete(msg)) {
-        setStatus(CompilerStatus.Complete);
-      }
-      if (isFail(msg)) {
-        setStatus(CompilerStatus.Error);
-      }
-      setLogs([...logs.slice(0, 10), ...(ownPluginMessages(msg) ?? [])]);
-      if (typeof rawLogs.current === "undefined") {
-        rawLogs.current = [];
-      }
-      rawLogs.current = [...rawLogs.current, msg];
-    };
-
-    const handleStderr = (data: Buffer) => {
-      // setStatus(CompilerStatus.Error);
-      const msg = cleanMsg(data);
-      setLogs([...logs.slice(0, 10), msg]);
-    };
-
-    if (build) {
-      build.stdout.on("data", handleStdout);
-      build.stderr.on("data", handleStderr);
+  const config = useMemo(
+    () => createConfig({ env: "development", scribblePad: filepath }),
+    [filepath]
+  );
+  const compiler = useMemo(() => {
+    if (config) {
+      return webpack(config);
     }
-    return () => {
-      if (build) {
-        build.stdout.off("data", handleStdout);
-        build.stderr.off("data", handleStdout);
+    return null;
+  }, [config]);
+  const devServer = useMemo(() => {
+    if (compiler && config) {
+      setLogs([...logs, "Compiling"]);
+      return new WebpackDevServer(compiler, config.devServer);
+    }
+    return null;
+    // eslint-disable-next-line
+  }, [compiler, config]);
+
+  useEffect(() => {
+    stub((buffer: Buffer) => {
+      const msg = `${buffer}`;
+      if (/Compiled successfully./.test(msg)) {
+        setStatus(CompilerStatus.Complete);
+        setLogs([...logs, "✅ Compile complete"]);
       }
-    };
-  }, [build, logs]);
+      if (/Failed to compile./.test(msg)) {
+        setStatus(CompilerStatus.Error);
+        setLogs([...logs, "🚨 Failed to compile"]);
+      }
+      if (/Compiling.../.test(msg)) {
+        setStatus(CompilerStatus.Error);
+        setLogs([...logs, "Re-compiling"]);
+      }
+      rawLogs.current = [
+        ...rawLogs.current.splice(0, 10),
+        `${buffer}`.replace(webpackPattern, "🕸")
+      ];
+      if (debug) {
+        setLogs(rawLogs.current);
+      }
+      return true;
+    });
+    return () => restore();
+  }, [debug, logs]);
+
+  useEffect(() => {
+    if (devServer && devServerStatus === DevServerStatus.Waiting) {
+      devServer.listen(port, err => {
+        if (err) {
+          setDevServerStatus(DevServerStatus.Error);
+          return;
+        }
+        setDevServerStatus(DevServerStatus.Started);
+      });
+    }
+    // eslint-disable-next-line
+  }, [devServer, devServerStatus]);
 
   return {
+    port,
     fileName,
     status,
-    build,
+    devServerStatus,
     logs,
     rawLogs
   };

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Scribble pad is a development environment for canvas",
   "main": "index.js",
+  "homepage": ".",
   "repository": "https://github.com/jcblw/scribble-pad",
   "author": "Jacob Lowe",
   "license": "MIT",
@@ -11,7 +12,9 @@
     "scribble-pad": "cli-build/start.js"
   },
   "scripts": {
-    "build": "babel src/cli --extensions '.ts,.tsx' --out-dir cli-build",
+    "build": "NODE_ENV=development yarn cli:build && NODE_ENV=development yarn main:build",
+    "cli:build": "babel src/cli --extensions '.ts,.tsx' --out-dir cli-build",
+    "main:build": "babel src/main --extensions '.ts,.tsx' --out-dir main-build",
     "dev": "electron-webpack dev",
     "compile": "electron-webpack",
     "dist": "yarn compile && electron-builder",
@@ -85,7 +88,7 @@
     "ts-pnp": "1.1.6",
     "url-loader": "2.3.0",
     "webpack": "4.42.0",
-    "webpack-dev-server": "3.11.0",
+    "webpack-dev-server": "^3.11.0",
     "webpack-manifest-plugin": "2.2.0",
     "webpack-watch-files-plugin": "^1.1.0",
     "workbox-webpack-plugin": "4.3.1"
@@ -184,6 +187,7 @@
   },
   "devDependencies": {
     "@babel/cli": "^7.11.6",
-    "@types/mkdirp": "^1.0.1"
+    "@types/mkdirp": "^1.0.1",
+    "@types/webpack-dev-server": "^3.11.0"
   }
 }

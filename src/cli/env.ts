@@ -1,9 +1,11 @@
-const fs = require("fs");
-const path = require("path");
-const paths = require("./paths");
+import fs from "fs";
+import path from "path";
+import { paths } from "./paths";
 
 // Make sure that including paths.js after env.js will read .env variables.
 delete require.cache[require.resolve("./paths")];
+
+process.env.NODE_ENV = "development";
 
 const NODE_ENV = process.env.NODE_ENV;
 if (!NODE_ENV) {
@@ -58,7 +60,7 @@ process.env.NODE_PATH = (process.env.NODE_PATH || "")
 // injected into the application via DefinePlugin in webpack configuration.
 const REACT_APP = /^REACT_APP_/i;
 
-function getClientEnvironment(publicUrl) {
+function getClientEnvironment(publicUrl: string, scribblePad: string) {
   const raw = Object.keys(process.env)
     .filter(key => REACT_APP.test(key))
     .reduce(
@@ -89,7 +91,7 @@ function getClientEnvironment(publicUrl) {
         ELECTRON_WEBPACK_WDS_SOCKET_PATH:
           process.env.ELECTRON_WEBPACK_WDS_SOCKET_PATH,
         ELECTRON_WEBPACK_WDS_PORT: process.env.ELECTRON_WEBPACK_WDS_PORT,
-        SCRIBBLE_PAD: process.env.SCRIBBLE_PAD
+        SCRIBBLE_PAD: scribblePad
       }
     );
   // Stringify all values so we can feed into webpack DefinePlugin
@@ -103,4 +105,4 @@ function getClientEnvironment(publicUrl) {
   return { raw, stringified };
 }
 
-module.exports = getClientEnvironment;
+export default getClientEnvironment;
