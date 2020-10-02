@@ -12,6 +12,7 @@ const modules = require("./modules");
 const getClientEnvironment = require("./env");
 const ForkTsCheckerWebpackPlugin = require("react-dev-utils/ForkTsCheckerWebpackPlugin");
 const typescriptFormatter = require("react-dev-utils/typescriptFormatter");
+const ScribblePadPlugin = require("./scribble-pad-plugin");
 
 const postcssNormalize = require("postcss-normalize");
 
@@ -34,28 +35,29 @@ const sassModuleRegex = /\.module\.(scss|sass)$/;
 const DEFAULT_PORT = 9080;
 
 module.exports = function(config) {
-  if (config.devServer) {
-    // FIX ENV
-    const socketPath = `http://${config.devServer.host}:${config.devServer.port}`;
-    process.env.ELECTRON_WEBPACK_WDS_SOCKET_HOST = config.devServer.host;
-    process.env.ELECTRON_WEBPACK_WDS_SOCKET_PATH = socketPath;
-    process.env.ELECTRON_WEBPACK_WDS_PORT = config.devServer.port;
-    process.env.ELECTRON_HMR_SOCKET_PATH = socketPath;
+  const scribblePadPlugin = new ScribblePadPlugin({
+    env: config.target,
+    scribblePad: paths.scribblePad,
+    directory: paths.scribblePadDir
+  });
+  const isRenderer = config.target === "electron-renderer";
+  // TODO: figure out how to not recreate this.
+  // const socketPath = `/tmp/electron-main-ipc-${(
+  //   process.pid + (isRenderer ? -1 : 0)
+  // ).toString(16)}.sock`;
 
-    // Update dev server
-    // config.devServer.contentBase.push(paths.scribblePadDir);
-    // config.devServer.watchContentBase = true;
-  } else {
-    process.env.ELECTRON_WEBPACK_WDS_SOCKET_HOST = "localhost";
-    process.env.ELECTRON_WEBPACK_WDS_SOCKET_PATH = 0;
-    process.env.ELECTRON_WEBPACK_WDS_PORT = DEFAULT_PORT;
-    process.env.ELECTRON_HMR_SOCKET_PATH = 0;
-  }
-
-  if (config.entry.renderer) {
-    // config.entry.renderer.push(paths.scribblePad);
-  }
-
+  // FIX up ENV.
+  // if (config.devServer) {
+  //   process.env.ELECTRON_WEBPACK_WDS_SOCKET_HOST = config.devServer.host;
+  //   process.env.ELECTRON_WEBPACK_WDS_PORT = config.devServer.port;
+  // } else {
+  //   process.env.ELECTRON_WEBPACK_WDS_SOCKET_HOST = "localhost";
+  //   process.env.ELECTRON_WEBPACK_WDS_PORT = DEFAULT_PORT;
+  // }
+  // if (!process.env.ELECTRON_HMR_SOCKET_PATH) {
+  //   process.env.ELECTRON_HMR_SOCKET_PATH = socketPath;
+  //   process.env.ELECTRON_WEBPACK_WDS_SOCKET_PATH = socketPath;
+  // }
   process.env.NODE_ENV = config.mode;
   process.env.BABEL_ENV = config.mode;
   // This is the production and development configuration.
@@ -135,21 +137,50 @@ module.exports = function(config) {
     return loaders;
   };
 
+  scribblePadPlugin.log(JSON.stringify(config.entry));
+
   const fullConfig = {
-    context: paths.appPath,
     ...config,
+    ...(isRenderer
+      ? {
+          entry: {
+            ...config.entry,
+            scribble: [paths.scribblePad]
+          }
+        }
+      : {}),
+    watch: isRenderer,
     externals: [...config.externals, "react", "react-dom"],
     // Stop compilation early in production
     bail: isEnvProduction,
+    ...(config.devServer
+      ? {
+          devServer: {
+            ...config.devServer,
+            contentBase: paths.scribblePadDir,
+            watchContentBase: true,
+            watchOptions: {
+              poll: true,
+              aggregateTimeout: 10000,
+              ignored: /node_modules/
+            },
+            before: (app, server) => {
+              scribblePadPlugin.watch(server);
+            }
+          }
+        }
+      : {}),
 
     resolve: {
       // This allows you to set a fallback for where webpack should look for modules.
       // We placed these paths second because we want `node_modules` to "win"
       // if there are any conflicts. This matches Node resolution mechanism.
       // https://github.com/facebook/create-react-app/issues/253
-      modules: ["node_modules", paths.appNodeModules].concat(
-        modules.additionalModulePaths || []
-      ),
+      modules: [
+        "node_modules",
+        paths.appNodeModules,
+        paths.scribblePadDir
+      ].concat(modules.additionalModulePaths || []),
       extensions: [".tsx", ".ts", ".svg"].concat(config.resolve.extensions),
       alias: {
         ...config.resolve.alias,
@@ -369,6 +400,7 @@ module.exports = function(config) {
     },
     plugins: [
       ...config.plugins,
+      scribblePadPlugin,
       // Makes some environment variables available to the JS code, for example:
       // if (process.env.NODE_ENV === 'production') { ... }. See `./env.js`.
       // It is absolutely essential that NODE_ENV is set to production

@@ -1,4 +1,5 @@
-import * as ScribblePadSubject from "scribble-pad-subject";
+// import * as ScribblePadSubject from "scribble-pad-subject";
+const ScribblePadSubject = require(process.env.SCRIBBLE_PAD);
 
 interface Config {
   context?: string;

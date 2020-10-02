@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import "./app.css";
 import { getCanvas } from "./scribble";
 import debounce from "debounce";
+
 import { config, onDraw, onSetup, onResize } from "./subject";
 
 const Canvas = getCanvas();
