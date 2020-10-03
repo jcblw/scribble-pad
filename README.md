@@ -2,11 +2,15 @@
 
 ![Usage](./src/usage.gif)
 
-This is an electron app and cli tool that allows you to spin up creative coding environments with just a file.
+This is an electron app and cli tool that allows you to spin up creative coding environments with just a file. This file currently works with both javascript and typescript files.
+
+[Example file](https://gist.github.com/jcblw/fdd1c664af9321063f63db9a949c4dbc)
 
 ## Why
 
 This is in early development but I would like a tool to not only be able to prototype creative coding projects, but also be able to distribute them as well. This will eventually have a tool to package the code as well in an electron app. As well as match the api an underlying tool [react-scribble](https://github.com/jcblw/react-scribble) to be able to add it into React applications as components.
+
+> Currently the app does not open in electron
 
 ## Technologies
 
