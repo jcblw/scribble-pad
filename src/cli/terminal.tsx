@@ -18,7 +18,8 @@ export const Terminal: React.FC<TerminalProps> = ({ filepath, debug }) => {
     status,
     fileName,
     devServerStatus,
-    port
+    port,
+    host
   } = useCompiler({
     filepath,
     debug
@@ -35,8 +36,8 @@ export const Terminal: React.FC<TerminalProps> = ({ filepath, debug }) => {
     <>
       <Box flexDirection="column">
         <Box flexDirection="row">
-          <Box paddingRight={1}>
-            <Text color="gray">Scribble Pad</Text>
+          <Box paddingRight={2}>
+            <Text color="gray">{"Scribble Pad".padEnd(15)}:</Text>
           </Box>
           <Text color="yellow" underline>
             {fileName}
@@ -44,9 +45,9 @@ export const Terminal: React.FC<TerminalProps> = ({ filepath, debug }) => {
         </Box>
         <Box flexDirection="row">
           <Box paddingRight={2}>
-            <Text color="gray">DevServer</Text>
+            <Text color="gray">{"Dev Server".padEnd(15)}:</Text>
           </Box>
-          {!isDevServerStarting ? (
+          {isDevServerStarting ? (
             <Box paddingRight={2}>
               <Text color="blue">
                 <Spinner />
@@ -54,12 +55,12 @@ export const Terminal: React.FC<TerminalProps> = ({ filepath, debug }) => {
             </Box>
           ) : null}
           <Text color="blue">
-            {devServerStatus} on port {port}
+            {host}:{port}
           </Text>
         </Box>
         <Box flexDirection="row">
           <Box paddingRight={2}>
-            <Text color="gray">Compiler</Text>
+            <Text color="gray">{"Compiler".padEnd(15)}:</Text>
           </Box>
           {!isCompilerComplete ? (
             <Box paddingRight={2}>

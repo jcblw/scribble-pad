@@ -15,6 +15,7 @@ interface UseCompilerOptions {
   filepath: string;
   debug?: boolean;
   port?: number;
+  host?: string;
 }
 
 export enum CompilerStatus {
@@ -34,7 +35,8 @@ export enum DevServerStatus {
 export const useCompiler = ({
   filepath,
   debug,
-  port = 9080
+  port = 9080,
+  host = "0.0.0.0"
 }: UseCompilerOptions) => {
   const rawLogs = useRef<string[]>([]);
   const [logs, setLogs] = useState<string[]>(["Starting"]);
@@ -91,7 +93,7 @@ export const useCompiler = ({
 
   useEffect(() => {
     if (devServer && devServerStatus === DevServerStatus.Waiting) {
-      devServer.listen(port, err => {
+      devServer.listen(port, host, err => {
         if (err) {
           setDevServerStatus(DevServerStatus.Error);
           return;
@@ -100,7 +102,7 @@ export const useCompiler = ({
       });
     }
     // eslint-disable-next-line
-  }, [devServer, devServerStatus]);
+  }, [devServer]);
 
   return {
     port,
@@ -108,6 +110,7 @@ export const useCompiler = ({
     status,
     devServerStatus,
     logs,
-    rawLogs
+    rawLogs,
+    host
   };
 };
